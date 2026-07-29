@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>a question</title>
+
+<!-- EmailJS (client-side email delivery). If not configured, the app falls back to a mailto draft automatically. -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<style>
+  :root{
+    --bg-top: #d97b95;
+    --bg-1: #c9587a;
+    --bg-2: #e0708f;
+    --glow: rgba(255, 224, 232, .55);
+    --card-bg: rgba(255, 255, 255, .16);
+    --card-bg-strong: rgba(255, 255, 255, .22);
+    --card-border: rgba(255, 255, 255, .45);
+    --blush: #fff6f8;
+    --pink-dark: #9c2f56;
+    --pink-deep: #7a2140;
+    --neon: #ffeef3;
+    --shadow-warm: rgba(90, 10, 32, .35);
+    --font-display: 'Playfair Display', 'Iowan Old Style', Georgia, serif;
+    --font-body: 'Quicksand', 'Century Gothic', sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&family=Quicksand:wght@400;500;600;700&display=swap');
+
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; height:100%; width:100%;
+    overflow:hidden;
+    font-family: var(--font-body);
+    background:
+      radial-gradient(ellipse 120% 60% at 50% -10%, var(--glow), transparent 55%),
+      linear-gradient(165deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    color: var(--blush);
+    cursor: none;
+  }
+  @media (pointer: coarse){
+    html, body{ cursor: auto; }
+  }
+
+  #app{ position:relative; width:100vw; height:100vh; }
+
+  .screen{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    padding: 24px;
+    opacity:0; visibility:hidden;
+    transform: translateY(14px) scale(.99);
+    transition: opacity .7s ease, transform .8s cubic-bezier(.2,.8,.2,1), visibility 0s linear .7s;
+    pointer-events:none;
+  }
+  .screen.active{
+    opacity:1; visibility:visible; transform: translateY(0) scale(1);
+    pointer-events:auto;
+    transition: opacity .7s ease, transform .8s cubic-bezier(.2,.8,.2,1), visibility 0s linear 0s;
+  }
+
+  /* ---------- Glass card ---------- */
+  .glass-card{
+    position:relative;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--card-border);
+    border-radius: 28px;
+    padding: 46px 42px;
+    box-shadow: 0 24px 70px var(--shadow-warm), inset 0 1px 0 rgba(255,255,255,.4);
+    max-width: 560px;
+    width: 100%;
+    text-align:center;
+  }
+
+  .eyebrow{
+    font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--neon); opacity:.85; margin: 0 0 10px;
+    font-weight:600;
+  }
+  h1, h2{
+    font-family: var(--font-display);
+    font-weight: 600;
+    margin: 0 0 14px;
+    line-height: 1.15;
+    color: #fff;
+    text-shadow: 0 2px 18px rgba(255,255,255,.25);
+  }
+  h1{ font-size: clamp(28px, 5vw, 44px); }
+  h2{ font-size: clamp(22px, 4vw, 32px); }
+  p{ margin: 0 0 8px; line-height:1.55; color: rgba(255,255,255,.92); font-size: 16px; }
+  .subtitle{ font-size: 16px; color: rgba(255,255,255,.85); margin-bottom: 28px; }
+
+  /* ---------- Pill buttons ---------- */
+  .btn-pill{
+    font-family: var(--font-body);
+    font-weight:700; font-size:16px;
+    background: var(--blush); color: var(--pink-dark);
+    border:none; border-radius:999px;
+    padding: 16px 38px;
+    cursor:none;
+    position:relative; overflow:hidden;
+    box-shadow: 0 8px 24px rgba(60,5,20,.28);
+    transition: transform .25s ease, box-shadow .35s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-pill:hover{
+    transform: translateY(-2px) scale(1.035);
+    box-shadow: 0 12px 34px rgba(60,5,20,.35), 0 0 34px rgba(255,214,224,.65);
+  }
+  .btn-pill:active{ transform: translateY(0) scale(.98); }
+  .ripple{
+    position:absolute; border-radius:50%;
+    background: rgba(156,47,86,.28);
+    transform: scale(0); animation: ripple .6s ease-out forwards;
+    pointer-events:none;
+  }
+  @keyframes ripple{ to{ transform: scale(3.2); opacity:0; } }
+
+  .btn-row{ display:flex; gap:18px; justify-content:center; margin-top: 30px; flex-wrap:wrap; }
+
+  .btn-no{
+    position: fixed;
+    z-index: 40;
+    transition: top .32s cubic-bezier(.34,1.56,.64,1), left .32s cubic-bezier(.34,1.56,.64,1), transform .32s ease;
+  }
+
+  /* ---------- Taunt toast ---------- */
+  .taunt-toast{
+    position: fixed; left:50%; top: 14%;
+    transform: translate(-50%, -12px);
+    background: var(--card-bg-strong);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    padding: 12px 22px; border-radius: 999px;
+    font-size:14px; font-weight:600; color:#fff;
+    box-shadow: 0 10px 30px var(--shadow-warm);
+    opacity:0; pointer-events:none; z-index: 60;
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .taunt-toast.show{ opacity:1; transform: translate(-50%, 0); }
+
+  .escape-counter{
+    margin-top: 16px; font-size:13px; color: rgba(255,255,255,.72); letter-spacing:.02em;
+  }
+
+  /* ---------- Cursor heart ---------- */
+  .cursor-heart{
+    position: fixed; top:0; left:0; width: 26px; height:26px;
+    pointer-events:none; z-index: 9999;
+    transform: translate(-50%,-50%);
+    filter: drop-shadow(0 0 6px rgba(255,214,224,.9)) drop-shadow(0 0 14px rgba(255,180,205,.6));
+    transition: transform .05s linear;
+    will-change: transform;
+  }
+  @media (pointer: coarse){ .cursor-heart{ display:none; } }
+
+  /* ---------- Ambient floating hearts / sparkles ---------- */
+  .ambient-hearts{ position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
+  .drift{
+    position:absolute; bottom:-40px;
+    opacity:.35;
+    animation-name: driftUp;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes driftUp{
+    0%{ transform: translateY(0) translateX(0) rotate(0deg); opacity:0; }
+    8%{ opacity:.4; }
+    92%{ opacity:.25; }
+    100%{ transform: translateY(-115vh) translateX(var(--drift-x,20px)) rotate(20deg); opacity:0; }
+  }
+  .spark{
+    position:absolute; border-radius:50%;
+    background: #fff; opacity:.6;
+    animation: twinkle 2.4s ease-in-out infinite;
+  }
+  @keyframes twinkle{ 0%,100%{ opacity:.15; } 50%{ opacity:.75; } }
+
+  /* ---------- Signature: overlapping neon hearts ---------- */
+  .neon-hearts-bg{
+    position: fixed; z-index:0; pointer-events:none;
+    top: 50%; left:50%; transform: translate(-50%,-50%);
+    opacity:.16;
+    animation: neonPulse 4.5s ease-in-out infinite;
+  }
+  @keyframes neonPulse{
+    0%,100%{ opacity:.12; filter: drop-shadow(0 0 10px rgba(255,238,243,.5)); }
+    50%{ opacity:.22; filter: drop-shadow(0 0 22px rgba(255,238,243,.85)); }
+  }
+  .neon-hearts-inline{
+    width: 72px; height:auto; margin: 0 auto 18px;
+    animation: neonPulse 3.2s ease-in-out infinite;
+  }
+
+  /* ---------- Loading screen ---------- */
+  .status-lines{ min-height: 110px; text-align:left; margin: 22px 0 10px; }
+  .status-line{
+    font-size:14px; color: rgba(255,255,255,.85);
+    margin: 6px 0; opacity:0; transform: translateX(-6px);
+    transition: opacity .35s ease, transform .35s ease;
+    font-family: var(--font-body);
+  }
+  .status-line.show{ opacity:1; transform: translateX(0); }
+  .status-line::before{ content: "♡ "; opacity:.7; }
+  .progress-track{
+    width:100%; height:8px; border-radius: 999px;
+    background: rgba(255,255,255,.22);
+    overflow:hidden; margin-top: 18px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.15);
+  }
+  .progress-fill{
+    height:100%; width:0%;
+    background: linear-gradient(90deg, #ffd7e2, #ffffff);
+    box-shadow: 0 0 16px rgba(255,255,255,.9);
+    border-radius:999px;
+    transition: width .35s ease;
+  }
+
+  /* ---------- Story screen ---------- */
+  .story-line{
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(20px, 3.6vw, 30px);
+    line-height:1.5;
+    color:#fff;
+    min-height: 120px;
+    display:flex; align-items:center; justify-content:center;
+    text-shadow: 0 2px 20px rgba(255,255,255,.25);
+  }
+  .story-line .cursor-blink{ opacity:.7; animation: blink 1s step-end infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+  .story-progress{ display:flex; gap:6px; justify-content:center; margin-top: 22px; }
+  .story-dot{ width:6px; height:6px; border-radius:50%; background: rgba(255,255,255,.35); transition: background .3s ease, transform .3s ease; }
+  .story-dot.done{ background: #fff; transform: scale(1.2); }
+
+  /* ---------- Ask screen ---------- */
+  .pill-toggle-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin: 20px 0 22px; }
+  .pill-toggle{
+    font-family: var(--font-body); font-weight:600; font-size:14px;
+    padding: 11px 22px; border-radius:999px; cursor:none;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.4);
+    color:#fff; transition: all .25s ease;
+  }
+  .pill-toggle.active{
+    background: var(--blush); color: var(--pink-dark);
+    box-shadow: 0 0 22px rgba(255,224,232,.7);
+    transform: translateY(-1px);
+  }
+
+  .field-group{ text-align:left; margin: 16px 0; }
+  .field-group label{
+    display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color: rgba(255,255,255,.75); margin-bottom: 6px; font-weight:600;
+  }
+  .field-input, .field-textarea{
+    width:100%; padding: 13px 16px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.4);
+    background: rgba(255,255,255,.14);
+    color:#fff; font-family: var(--font-body); font-size:15px;
+    outline:none; transition: border-color .25s ease, background .25s ease;
+  }
+  .field-input::placeholder, .field-textarea::placeholder{ color: rgba(255,255,255,.55); }
+  .field-input:focus, .field-textarea:focus{ border-color: #fff; background: rgba(255,255,255,.2); }
+  .field-textarea{ min-height: 70px; resize: vertical; }
+  .field-input[type="date"]{ color-scheme: dark; }
+
+  .send-status{ font-size:13px; margin-top:14px; min-height:18px; color: rgba(255,255,255,.85); }
+
+  /* ---------- Final screen ---------- */
+  #confetti-canvas{ position:fixed; inset:0; z-index: 50; pointer-events:none; }
+  .summary-box{
+    text-align:left; background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.3); border-radius:18px;
+    padding: 16px 20px; margin: 20px 0; font-size:14px;
+    color: rgba(255,255,255,.92); line-height:1.7;
+  }
+  .summary-box b{ color:#fff; }
+
+  .burst-heart{
+    position:fixed; z-index:55; pointer-events:none;
+    font-size:22px; opacity:1; will-change: transform, opacity;
+  }
+
+  .footer-note{ margin-top: 20px; font-size:12px; color: rgba(255,255,255,.55); }
+
+  @media (max-width: 480px){
+    .glass-card{ padding: 34px 24px; border-radius:22px; }
+    .pill-toggle{ padding: 9px 16px; font-size:13px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .drift, .spark, .neon-hearts-bg, .neon-hearts-inline{ animation: none !important; }
+    .screen{ transition: opacity .3s ease !important; transform:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<div class="ambient-hearts" id="ambient"></div>
+
+<svg class="neon-hearts-bg" id="neonBg" width="360" height="260" viewBox="0 0 360 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M140 210C60 160 20 120 20 80C20 48 44 26 74 26C96 26 116 38 128 58C140 38 160 26 182 26C212 26 236 48 236 80C236 120 196 160 140 210Z" stroke="#ffeef3" stroke-width="2.5"/>
+  <path d="M220 190C150 146 116 110 116 76C116 47 138 27 165 27C185 27 202 38 213 56C224 38 241 27 261 27C288 27 310 47 310 76C310 110 276 146 220 190Z" stroke="#ffeef3" stroke-width="2.5"/>
+</svg>
+
+<svg class="cursor-heart" id="cursorHeart" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 27C7 20.5 2 15 2 9.6C2 5.4 5.4 2 9.6 2C12.6 2 15.2 3.8 16 6.4C16.8 3.8 19.4 2 22.4 2C26.6 2 30 5.4 30 9.6C30 15 25 20.5 16 27Z" fill="#ffeef3" stroke="#ffffff" stroke-width="1"/>
+</svg>
+
+<div id="app">
+
+  <!-- SCREEN 1 — QUESTION -->
+  <section class="screen active" id="screen-question">
+    <div class="glass-card">
+      <svg class="neon-hearts-inline" viewBox="0 0 360 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M140 210C60 160 20 120 20 80C20 48 44 26 74 26C96 26 116 38 128 58C140 38 160 26 182 26C212 26 236 48 236 80C236 120 196 160 140 210Z" stroke="#ffeef3" stroke-width="6"/>
+        <path d="M220 190C150 146 116 110 116 76C116 47 138 27 165 27C185 27 202 38 213 56C224 38 241 27 261 27C288 27 310 47 310 76C310 110 276 146 220 190Z" stroke="#ffeef3" stroke-width="6"/>
+      </svg>
+      <p class="eyebrow">a question, for you</p>
+      <h1>Will you be my girlfriend?</h1>
+      <p class="subtitle">Take your time. Well — take your time on this button, at least.</p>
+      <div class="btn-row">
+        <button class="btn-pill" id="btnYes">Yes, obviously</button>
+        <button class="btn-pill btn-no" id="btnNo">No</button>
+      </div>
+      <div class="escape-counter" id="escapeCounter">attempts to say no: 0</div>
+    </div>
+  </section>
+
+  <!-- SCREEN 2 — FAKE LOADING -->
+  <section class="screen" id="screen-loading">
+    <div class="glass-card">
+      <p class="eyebrow">please wait</p>
+      <h2>Processing your excellent decision</h2>
+      <div class="status-lines" id="statusLines"></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </section>
+
+  <!-- SCREEN 3 — STORY -->
+  <section class="screen" id="screen-story">
+    <div class="glass-card">
+      <p class="eyebrow">a little context</p>
+      <div class="story-line" id="storyLine"></div>
+      <div class="story-progress" id="storyProgress"></div>
+    </div>
+  </section>
+
+  <!-- SCREEN 4 — ASK -->
+  <section class="screen" id="screen-ask">
+    <div class="glass-card">
+      <p class="eyebrow">now for the real question</p>
+      <h2>Can I take you out?</h2>
+      <p class="subtitle">Pick whatever sounds good — you're allowed more than one.</p>
+
+      <div class="pill-toggle-row" id="mealPills">
+        <button class="pill-toggle" data-meal="Coffee">☕ Coffee</button>
+        <button class="pill-toggle" data-meal="Lunch">🥗 Lunch</button>
+        <button class="pill-toggle" data-meal="Dinner">🍝 Dinner</button>
+      </div>
+
+      <div class="field-group">
+        <label for="dateInput">Date</label>
+        <input type="date" id="dateInput" class="field-input">
+      </div>
+      <div class="field-group">
+        <label for="placeInput">Place / venue</label>
+        <input type="text" id="placeInput" class="field-input" placeholder="wherever you'd like">
+      </div>
+      <div class="field-group">
+        <label for="noteInput">A note for her (optional)</label>
+        <textarea id="noteInput" class="field-textarea" placeholder="say something sweet, or don't"></textarea>
+      </div>
+
+      <button class="btn-pill" id="btnSend" style="width:100%;">Send my reply</button>
+      <div class="send-status" id="sendStatus"></div>
+    </div>
+  </section>
+
+  <!-- SCREEN 5 — FINAL -->
+  <section class="screen" id="screen-final">
+    <div class="glass-card">
+      <svg class="neon-hearts-inline" viewBox="0 0 360 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M140 210C60 160 20 120 20 80C20 48 44 26 74 26C96 26 116 38 128 58C140 38 160 26 182 26C212 26 236 48 236 80C236 120 196 160 140 210Z" stroke="#ffeef3" stroke-width="6"/>
+        <path d="M220 190C150 146 116 110 116 76C116 47 138 27 165 27C185 27 202 38 213 56C224 38 241 27 261 27C288 27 310 47 310 76C310 110 276 146 220 190Z" stroke="#ffeef3" stroke-width="6"/>
+      </svg>
+      <p class="eyebrow">it's official</p>
+      <h2 id="finalHeadline">Thank you 💗</h2>
+      <p id="finalMessage">She's going to be so happy you said yes.</p>
+      <div class="summary-box" id="summaryBox"></div>
+      <button class="btn-pill" id="btnReplay">Watch it again</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="taunt-toast" id="tauntToast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ CONFIG — fill these in to enable real email delivery ============ */
+  const EMAILJS_CONFIG = {
+    serviceID:  "YOUR_SERVICE_ID",
+    templateID: "YOUR_TEMPLATE_ID",
+    publicKey:  "YOUR_PUBLIC_KEY",
+    toEmail:    "shafarshafar519@gmail.com"
+  };
+  const isEmailJSConfigured =
+    !EMAILJS_CONFIG.serviceID.startsWith("YOUR_") &&
+    !EMAILJS_CONFIG.templateID.startsWith("YOUR_") &&
+    !EMAILJS_CONFIG.publicKey.startsWith("YOUR_");
+
+  if (isEmailJSConfigured && window.emailjs){
+    try{ emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); }catch(e){}
+  }
+
+  /* ============ Screen manager ============ */
+  const screens = ["screen-question","screen-loading","screen-story","screen-ask","screen-final"];
+  function goTo(id){
+    screens.forEach(s => document.getElementById(s).classList.toggle("active", s === id));
+  }
+
+  /* ============ Cursor heart ============ */
+  const cursorHeart = document.getElementById("cursorHeart");
+  let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
+  document.addEventListener("pointermove", (e) => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    cursorHeart.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%,-50%)`;
+  }, { passive:true });
+
+  /* ============ Ambient floating hearts & sparkles ============ */
+  const ambient = document.getElementById("ambient");
+  function spawnAmbient(){
+    const total = 26;
+    for (let i=0;i<total;i++){
+      const isHeart = Math.random() > 0.35;
+      const el = document.createElement("div");
+      const left = Math.random()*100;
+      const duration = 10 + Math.random()*10;
+      const delay = -Math.random()*duration;
+      const driftX = (Math.random()*80 - 40) + "px";
+      el.style.left = left + "vw";
+      el.style.setProperty("--drift-x", driftX);
+      el.style.animationDuration = duration + "s";
+      el.style.animationDelay = delay + "s";
+      if (isHeart){
+        el.className = "drift";
+        const size = 10 + Math.random()*16;
+        el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 27C7 20.5 2 15 2 9.6C2 5.4 5.4 2 9.6 2C12.6 2 15.2 3.8 16 6.4C16.8 3.8 19.4 2 22.4 2C26.6 2 30 5.4 30 9.6C30 15 25 20.5 16 27Z" fill="#ffffff" opacity="0.55"/></svg>`;
+      } else {
+        el.className = "drift spark";
+        const size = 2 + Math.random()*3;
+        el.style.width = size+"px"; el.style.height = size+"px";
+        el.style.animationName = "driftUp, twinkle";
+        el.style.animationDuration = duration+"s, "+(1.6+Math.random()*2)+"s";
+        el.style.animationTimingFunction = "linear, ease-in-out";
+        el.style.animationIterationCount = "infinite, infinite";
+      }
+      ambient.appendChild(el);
+    }
+  }
+  spawnAmbient();
+
+  /* ============ Ripple on pill buttons ============ */
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-pill, .pill-toggle");
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement("span");
+    const size = Math.max(rect.width, rect.height);
+    ripple.className = "ripple";
+    ripple.style.width = ripple.style.height = size + "px";
+    ripple.style.left = (e.clientX - rect.left - size/2) + "px";
+    ripple.style.top  = (e.clientY - rect.top  - size/2) + "px";
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 650);
+  });
+
+  /* ============ SCREEN 1: Question — YES / dodging NO ============ */
+  const btnYes = document.getElementById("btnYes");
+  const btnNo  = document.getElementById("btnNo");
+  const escapeCounterEl = document.getElementById("escapeCounter");
+  const tauntToast = document.getElementById("tauntToast");
+
+  const noTexts = [
+    "No", "Nope", "Try again", "Nice try", "Still no", "Catch me if you can",
+    "Not happening", "Are you sure?", "Really?", "I said no", "Persistent, huh",
+    "Getting warmer? No.", "This is my final answer... maybe", "Okay this is embarrassing now",
+    "You're not tired yet?", "Respect the hustle though", "Last chance to give up",
+    "I'm faster than your cursor", "Beep boop, still no", "Error 404: Yes not found",
+    "Just click the other one", "Seriously, it's right there", "Ok fine, impressive", "No means no (for now)"
+  ];
+  let escapeCount = 0;
+  let lastDodge = 0;
+  let noPositioned = false;
+  const tauntMilestones = {
+    15: "Wow. Still trying?",
+    30: "This is genuinely impressive at this point.",
+    50: "Okay, I respect the dedication. It's still a no — but the other button works great."
+  };
+
+  function placeNoRandomly(){
+    const w = window.innerWidth, h = window.innerHeight;
+    const btnW = btnNo.offsetWidth || 90, btnH = btnNo.offsetHeight || 50;
+    const margin = 24;
+    const x = margin + Math.random() * (w - btnW - margin*2);
+    const y = margin + Math.random() * (h - btnH - margin*2);
+    btnNo.style.left = x + "px";
+    btnNo.style.top = y + "px";
+    btnNo.style.transform = `rotate(${(Math.random()*30 - 15).toFixed(1)}deg)`;
+  }
+
+  function showTaunt(text){
+    tauntToast.textContent = text;
+    tauntToast.classList.add("show");
+    clearTimeout(showTaunt._t);
+    showTaunt._t = setTimeout(() => tauntToast.classList.remove("show"), 2600);
+  }
+
+  function initNoPosition(){
+    // start it inline next to YES; it will fly free on first approach
+    btnNo.style.position = "relative";
+    btnNo.style.left = "auto"; btnNo.style.top = "auto";
+  }
+  initNoPosition();
+
+  function dodgeIfClose(clientX, clientY){
+    if (!document.getElementById("screen-question").classList.contains("active")) return;
+    const now = Date.now();
+    if (now - lastDodge < 90) return;
+    const rect = btnNo.getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    const dist = Math.hypot(clientX - cx, clientY - cy);
+    if (dist < 120){
+      lastDodge = now;
+      if (!noPositioned){
+        btnNo.style.position = "fixed";
+        noPositioned = true;
+      }
+      placeNoRandomly();
+      escapeCount++;
+      btnNo.textContent = noTexts[Math.min(escapeCount-1, noTexts.length-1)];
+      escapeCounterEl.textContent = `attempts to say no: ${escapeCount}`;
+      if (tauntMilestones[escapeCount]) showTaunt(tauntMilestones[escapeCount]);
+    }
+  }
+  document.addEventListener("pointermove", (e) => dodgeIfClose(e.clientX, e.clientY), { passive:true });
+  btnNo.addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    if (t) dodgeIfClose(t.clientX, t.clientY);
+    e.preventDefault();
+  }, { passive:false });
+  btnNo.addEventListener("mouseenter", () => dodgeIfClose(mouseX, mouseY));
+  window.addEventListener("resize", () => { if (noPositioned) placeNoRandomly(); });
+
+  btnYes.addEventListener("click", () => {
+    goTo("screen-loading");
+    runLoadingSequence();
+  });
+
+  /* ============ SCREEN 2: Fake loading ============ */
+  const statusLinesEl = document.getElementById("statusLines");
+  const progressFill = document.getElementById("progressFill");
+  const loadingLines = [
+    { text: "Calculating odds of a yes...", ms: 900 },
+    { text: "Compiling reasons I like you (long list)...", ms: 1100 },
+    { text: "Double-checking with my nervous system...", ms: 900 },
+    { text: "Rehearsing what to say next...", ms: 900 },
+    { text: "Adding a little more sparkle...", ms: 800 },
+    { text: "Almost there...", ms: 600 }
+  ];
+  let loadingRunning = false;
+  function runLoadingSequence(){
+    if (loadingRunning) return;
+    loadingRunning = true;
+    statusLinesEl.innerHTML = "";
+    progressFill.style.width = "0%";
+    let elapsed = 0;
+    const total = loadingLines.reduce((a,l) => a + l.ms, 0);
+    loadingLines.forEach((line, i) => {
+      setTimeout(() => {
+        const div = document.createElement("div");
+        div.className = "status-line";
+        div.textContent = line.text;
+        statusLinesEl.appendChild(div);
+        requestAnimationFrame(() => div.classList.add("show"));
+      }, elapsed);
+      elapsed += line.ms;
+      setTimeout(() => {
+        progressFill.style.width = Math.round((elapsed/total)*100) + "%";
+      }, elapsed - 50);
+    });
+    setTimeout(() => {
+      loadingRunning = false;
+      goTo("screen-story");
+      runStorySequence();
+    }, total + 400);
+  }
+
+  /* ============ SCREEN 3: Story, typed letter by letter ============ */
+  const storyLineEl = document.getElementById("storyLine");
+  const storyProgressEl = document.getElementById("storyProgress");
+  const storyLines = [
+    "I remember the exact second I saw you — the room got quieter, somehow.",
+    "You laughed at something dumb I said, and I quietly decided: yeah, this one.",
+    "I've rehearsed this moment in my head about forty-seven times. This is take forty-eight.",
+    "They say grand gestures should be smooth. I am not smooth. I am trying anyway.",
+    "Every 'talk later' from you has made my whole day better than it had any right to be.",
+    "So here's the least smooth, most honest thing I have to say."
+  ];
+  let storyRunning = false;
+  function runStorySequence(){
+    if (storyRunning) return;
+    storyRunning = true;
+    storyProgressEl.innerHTML = storyLines.map(() => `<div class="story-dot"></div>`).join("");
+    const dots = storyProgressEl.querySelectorAll(".story-dot");
+    let idx = 0;
+    function nextLine(){
+      if (idx >= storyLines.length){
+        storyRunning = false;
+        goTo("screen-ask");
+        return;
+      }
+      typeLine(storyLines[idx], () => {
+        dots[idx].classList.add("done");
+        setTimeout(() => {
+          storyLineEl.style.transition = "opacity .5s ease";
+          storyLineEl.style.opacity = "0";
+          setTimeout(() => {
+            idx++;
+            storyLineEl.style.opacity = "1";
+            nextLine();
+          }, 550);
+        }, 3000);
+      });
+    }
+    function typeLine(text, done){
+      storyLineEl.innerHTML = `<span class="typed"></span><span class="cursor-blink">|</span>`;
+      const typedEl = storyLineEl.querySelector(".typed");
+      let c = 0;
+      const speed = 32;
+      const timer = setInterval(() => {
+        c++;
+        typedEl.textContent = text.slice(0, c);
+        if (c >= text.length){
+          clearInterval(timer);
+          done();
+        }
+      }, speed);
+    }
+    nextLine();
+  }
+
+  /* ============ SCREEN 4: Ask ============ */
+  const mealPills = document.getElementById("mealPills");
+  const selectedMeals = new Set();
+  mealPills.querySelectorAll(".pill-toggle").forEach(pill => {
+    pill.addEventListener("click", () => {
+      const meal = pill.dataset.meal;
+      if (selectedMeals.has(meal)){
+        selectedMeals.delete(meal);
+        pill.classList.remove("active");
+      } else {
+        selectedMeals.add(meal);
+        pill.classList.add("active");
+      }
+    });
+  });
+
+  const dateInput = document.getElementById("dateInput");
+  const placeInput = document.getElementById("placeInput");
+  const noteInput = document.getElementById("noteInput");
+  const btnSend = document.getElementById("btnSend");
+  const sendStatus = document.getElementById("sendStatus");
+
+  let lastReply = null;
+
+  btnSend.addEventListener("click", () => {
+    const meals = Array.from(selectedMeals);
+    const date = dateInput.value;
+    const place = placeInput.value.trim();
+    const note = noteInput.value.trim();
+
+    if (meals.length === 0){
+      sendStatus.textContent = "Pick at least one — coffee, lunch, or dinner.";
+      return;
+    }
+    if (!date || !place){
+      sendStatus.textContent = "A date and a place would help her plan the outfit.";
+      return;
+    }
+
+    lastReply = { meals, date, place, note, escapes: escapeCount };
+    sendStatus.textContent = "Sending...";
+    btnSend.disabled = true;
+
+    sendReply(lastReply)
+      .then(() => {
+        sendStatus.textContent = "Sent 💌";
+        setTimeout(() => {
+          renderSummary(lastReply);
+          goTo("screen-final");
+          celebrate();
+        }, 500);
+      })
+      .catch(() => {
+        openMailtoFallback(lastReply);
+        sendStatus.textContent = "Opening a pre-filled email for you...";
+        setTimeout(() => {
+          renderSummary(lastReply);
+          goTo("screen-final");
+          celebrate();
+        }, 900);
+      })
+      .finally(() => { btnSend.disabled = false; });
+  });
+
+  function sendReply(reply){
+    return new Promise((resolve, reject) => {
+      if (!isEmailJSConfigured || !window.emailjs){
+        reject(new Error("EmailJS not configured"));
+        return;
+      }
+      const params = {
+        to_email: EMAILJS_CONFIG.toEmail,
+        meals: reply.meals.join(", "),
+        date: reply.date,
+        place: reply.place,
+        note: reply.note || "(no note)",
+        escapes: reply.escapes
+      };
+      emailjs.send(EMAILJS_CONFIG.serviceID, EMAILJS_CONFIG.templateID, params)
+        .then(() => resolve())
+        .catch((err) => reject(err));
+    });
+  }
+
+  function openMailtoFallback(reply){
+    const subject = encodeURIComponent("She said yes 💗 (well, he did)");
+    const body = encodeURIComponent(
+      `He picked: ${reply.meals.join(", ")}\n` +
+      `Date: ${reply.date}\n` +
+      `Place: ${reply.place}\n` +
+      `Note: ${reply.note || "(no note)"}\n` +
+      `Times he tried to dodge the question first: ${reply.escapes}`
+    );
+    const mailto = `mailto:${EMAILJS_CONFIG.toEmail}?subject=${subject}&body=${body}`;
+    window.location.href = mailto;
+  }
+
+  /* ============ SCREEN 5: Final ============ */
+  const summaryBox = document.getElementById("summaryBox");
+  function renderSummary(reply){
+    const escapesLine = reply.escapes > 0
+      ? `<p>He dodged the question <b>${reply.escapes}</b> time${reply.escapes === 1 ? "" : "s"} before saying yes.</p>`
+      : `<p>He said yes immediately — no dodging at all.</p>`;
+    summaryBox.innerHTML = `
+      <p><b>Plans:</b> ${reply.meals.join(", ")}</p>
+      <p><b>Date:</b> ${reply.date || "—"}</p>
+      <p><b>Place:</b> ${reply.place || "—"}</p>
+      <p><b>Note:</b> ${reply.note ? reply.note : "—"}</p>
+      ${escapesLine}
+    `;
+  }
+
+  const btnReplay = document.getElementById("btnReplay");
+  btnReplay.addEventListener("click", () => {
+    escapeCount = 0;
+    noPositioned = false;
+    escapeCounterEl.textContent = "attempts to say no: 0";
+    btnNo.textContent = "No";
+    btnNo.style.position = "relative";
+    btnNo.style.left = "auto"; btnNo.style.top = "auto"; btnNo.style.transform = "none";
+    selectedMeals.clear();
+    mealPills.querySelectorAll(".pill-toggle").forEach(p => p.classList.remove("active"));
+    dateInput.value = ""; placeInput.value = ""; noteInput.value = "";
+    sendStatus.textContent = "";
+    goTo("screen-question");
+  });
+
+  /* ============ Confetti + heart burst ============ */
+  const canvas = document.getElementById("confetti-canvas");
+  const ctx = canvas.getContext("2d");
+  function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  function celebrate(){
+    launchConfetti();
+    launchHeartBurst();
+  }
+
+  function launchConfetti(){
+    const colors = ["#ffffff", "#ffe6ee", "#ffc4d6", "#ffd7e2", "#f7a8c0"];
+    const pieces = [];
+    const count = 140;
+    for (let i=0;i<count;i++){
+      pieces.push({
+        x: Math.random()*canvas.width,
+        y: -20 - Math.random()*canvas.height*0.3,
+        w: 6 + Math.random()*6,
+        h: 8 + Math.random()*10,
+        rot: Math.random()*Math.PI*2,
+        rotSpeed: (Math.random()-0.5)*0.2,
+        vy: 2 + Math.random()*3,
+        vx: (Math.random()-0.5)*2,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        life: 0,
+        maxLife: 260 + Math.random()*80
+      });
+    }
+    let frame = 0;
+    const maxFrames = 340;
+    function tick(){
+      ctx.clearRect(0,0,canvas.width, canvas.height);
+      let alive = false;
+      pieces.forEach(p => {
+        p.life++;
+        if (p.life > p.maxLife) return;
+        alive = true;
+        p.x += p.vx; p.y += p.vy; p.rot += p.rotSpeed;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = Math.max(0, 1 - p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (alive && frame < maxFrames){
+        requestAnimationFrame(tick);
+      } else {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+      }
+    }
+    tick();
+  }
+
+  function launchHeartBurst(){
+    const centerX = window.innerWidth/2, centerY = window.innerHeight/2;
+    const total = 18;
+    for (let i=0;i<total;i++){
+      const el = document.createElement("div");
+      el.className = "burst-heart";
+      el.textContent = Math.random() > 0.5 ? "💗" : "💕";
+      el.style.left = centerX + "px";
+      el.style.top = centerY + "px";
+      document.body.appendChild(el);
+      const angle = (Math.PI * 2 * i / total) + (Math.random()*0.4 - 0.2);
+      const distance = 120 + Math.random()*160;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance;
+      const duration = 900 + Math.random()*500;
+      el.animate([
+        { transform: "translate(-50%,-50%) scale(0.4)", opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.1)`, opacity: 0 }
+      ], { duration, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" });
+      setTimeout(() => el.remove(), duration + 60);
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
